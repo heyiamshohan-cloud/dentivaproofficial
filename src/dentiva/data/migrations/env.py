@@ -57,15 +57,22 @@ def run_migrations_offline() -> None:
 def run_migrations_online() -> None:
     """Apply migrations inside a transaction against a live connection."""
     engine = _engine()
-    with engine.connect() as connection:
-        context.configure(
-            connection=connection,
-            target_metadata=target_metadata,
-            render_as_batch=True,
-            compare_type=True,
-        )
-        with context.begin_transaction():
-            context.run_migrations()
+    try:
+        with engine.connect() as connection:
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                render_as_batch=True,
+                compare_type=True,
+            )
+            with context.begin_transaction():
+                context.run_migrations()
+    finally:
+        # Windows will not let the database file be deleted, renamed or
+        # replaced while a connection to it is still open, and every later
+        # step (recovery after a failed upgrade, backup, restore) needs the
+        # file. The caller's own engine is untouched.
+        engine.dispose()
 
 
 if context.is_offline_mode():

@@ -42,3 +42,30 @@ def test_logging_survives_an_unwritable_log_directory(tmp_path) -> None:
     broken = replace(paths, logs=blocker / "logs")
     assert configure_logging(broken, console=False) is None
     assert get_logger("test-missing") is not None
+
+
+def test_logging_can_be_shut_down_and_the_log_file_released(tmp_path) -> None:
+    """Windows will not delete a file that is still open, so the log file has
+    to be releasable on demand (self-test, backup, restore, uninstall)."""
+    import logging
+    from pathlib import Path
+
+    from dentiva.core.logging_setup import (
+        LOGGER_NAME,
+        configure_logging,
+        get_logger,
+        shutdown_logging,
+    )
+    from dentiva.core.paths import AppPaths
+
+    paths = AppPaths.create(tmp_path / "data").ensure()
+    log_file = configure_logging(paths, console=False)
+    assert log_file is not None
+    get_logger("test").info("a line that must be flushed")
+    for handler in logging.getLogger(LOGGER_NAME).handlers:
+        handler.flush()
+
+    shutdown_logging()
+    assert logging.getLogger(LOGGER_NAME).handlers == []
+    Path(log_file).unlink()
+    assert not Path(log_file).exists()

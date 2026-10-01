@@ -121,3 +121,30 @@ def test_migration_error_is_a_domain_error(tmp_path) -> None:
         pass
     finally:
         engine.dispose()
+
+
+def test_the_alembic_configuration_survives_a_windows_style_url() -> None:
+    """Alembic keeps its options in a ConfigParser, where ``%`` starts an
+    interpolation. SQLAlchemy percent-escapes the colon of a Windows drive
+    (``sqlite:///C%3A/...``), which used to raise
+    ``ValueError: invalid interpolation syntax`` on Windows."""
+    from dentiva.data.engine import _alembic_config
+
+    url = "sqlite:///C%3A/Users/Clinic/AppData/Local/Dentiva%20Pro/clinic.db"
+    config = _alembic_config(url)
+    assert config.get_main_option("sqlalchemy.url") == url
+
+
+def test_an_upgrade_leaves_no_connection_holding_the_database_file(tmp_path) -> None:
+    """The Alembic environment builds its own engine; if it is never disposed
+    the database file stays locked, and on Windows a locked file cannot be
+    deleted, renamed or replaced — which is exactly what recovery, backup and
+    restore need to do."""
+    db = tmp_path / "clinic.db"
+    engine = create_engine_for(db)
+    try:
+        upgrade(engine, safety_backup_dir=tmp_path)
+        engine.dispose()
+        db.unlink()  # raises PermissionError on Windows while a handle is open
+    finally:
+        engine.dispose()

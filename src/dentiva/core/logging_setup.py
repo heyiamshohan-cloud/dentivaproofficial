@@ -139,6 +139,24 @@ def configure_logging(
     return file_path
 
 
+def shutdown_logging() -> None:
+    """Close every handler this module installed and release the log file.
+
+    Windows refuses to delete, rename or replace a file that any process still
+    holds open, and a rotating file handler holds ``dentiva.log`` open for the
+    lifetime of the process. Anything that needs the file released — the
+    self-test, a backup or restore, an uninstall — calls this first.
+    """
+    global _configured
+
+    logger = logging.getLogger(LOGGER_NAME)
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        handler.close()
+    _handlers.clear()
+    _configured = False
+
+
 def get_logger(name: str) -> logging.Logger:
     """Return a logger beneath the ``dentiva`` namespace."""
     if not _configured:  # sensible defaults for unit tests and CLI use

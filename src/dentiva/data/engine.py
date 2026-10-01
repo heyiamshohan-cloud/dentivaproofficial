@@ -197,7 +197,11 @@ def _alembic_config(engine_or_url: Engine | str) -> Any:
     url = engine_or_url if isinstance(engine_or_url, str) else str(engine_or_url.url)
     config = Config()
     config.set_main_option("script_location", str(script_location()))
-    config.set_main_option("sqlalchemy.url", url)
+    # Alembic stores options in a ConfigParser, where "%" starts an
+    # interpolation. A SQLAlchemy URL percent-escapes the colon of a Windows
+    # drive ("sqlite:///C%3A/..."), so it must be doubled here and is turned
+    # back into a single "%" when Alembic reads the option.
+    config.set_main_option("sqlalchemy.url", url.replace("%", "%%"))
     return config
 
 

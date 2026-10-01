@@ -121,7 +121,7 @@ def _check_paths() -> str:
 
 
 def _check_logging() -> str:
-    from dentiva.core.logging_setup import configure_logging, redact
+    from dentiva.core.logging_setup import configure_logging, redact, shutdown_logging
 
     with tempfile.TemporaryDirectory() as tmp:
         from dentiva.core.paths import AppPaths
@@ -130,6 +130,9 @@ def _check_logging() -> str:
         log_file = configure_logging(paths, console=False)
         if log_file is None or not Path(log_file).parent.is_dir():
             raise AssertionError("log file was not created")
+        # Release the file before the temporary directory is removed: on
+        # Windows an open log file cannot be deleted.
+        shutdown_logging()
     # A synthetic sample: the real activation code is never written to source.
     redacted = redact("password=hunter2 activation_code=0000000000000000")
     if "hunter2" in redacted or "0000000000000000" in redacted:
