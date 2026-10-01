@@ -1,0 +1,9 @@
+# Dentiva Pro - production runtime dependencies (pinned, offline-capable, commercially redistributable)
+PySide6-Essentials==6.11.2
+shiboken6==6.11.2
+SQLAlchemy==2.1.1
+alembic==1.20.0
+argon2-cffi==25.1.0
+argon2-cffi-bindings==26.1.0
+Pillow==12.3.0
+openpyxl==3.1.5
