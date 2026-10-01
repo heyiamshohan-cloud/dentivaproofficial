@@ -1,0 +1,22 @@
+# Python / build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+venv/
+# Generated at build time
+dentiva/_buildinfo.py
+# Local data (never commit clinic data, logs, backups, drafts)
+*.db
+*.db-wal
+*.db-shm
+*.dvbk
+*.part

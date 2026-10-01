@@ -1,0 +1,3 @@
+# Build/packaging dependencies (used on the Windows release runner, NOT shipped)
+-r requirements.txt
+pyinstaller==6.16.0
