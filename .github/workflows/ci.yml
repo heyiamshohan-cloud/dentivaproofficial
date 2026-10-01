@@ -94,6 +94,10 @@ jobs:
   tests-windows:
     name: pytest (Windows, genuine Qt stack)
     runs-on: windows-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     env:
       QT_QPA_PLATFORM: "offscreen"
     steps:
@@ -107,7 +111,26 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
       - name: pytest
-        run: pytest -q
+        id: pytest
+        shell: bash
+        run: |
+          set -o pipefail
+          pytest -q 2>&1 | tee pytest.log
+      - name: Publish the failure log where it can be read
+        if: failure()
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "### Windows pytest failed (run $GITHUB_RUN_ID)"
+            echo
+            echo '```'
+            tail -n 150 pytest.log
+            echo '```'
+          } > failure.md
+          gh api "repos/${{ github.repository }}/issues/1/comments" \
+            --field body="$(cat failure.md)" || true
       - name: Headless self-test
         run: python -m dentiva.main --selftest
       - name: Layout audit (5 resolutions, 200% scaling)
