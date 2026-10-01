@@ -165,4 +165,20 @@ jobs:
           pip install -r requirements-dev.txt
           pip install -e .
       - name: vulture
-        run: vulture src tests --min-confidence 80
+        run: vulture src tests tools --min-confidence 80
+
+  traceability:
+    name: Requirements traceability
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check the matrix against the baseline and the test suite
+        run: python tools/trace_report.py
+      - name: Release gate (informational until Phase 18)
+        # Every mandatory requirement must be verified before a release; the
+        # step is allowed to fail while earlier phases are still in progress.
+        continue-on-error: true
+        run: python tools/trace_report.py --release
