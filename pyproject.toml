@@ -1,0 +1,131 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dentiva-pro"
+description = "Dentiva Pro — offline-first dental clinic management for Windows"
+readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["version"]
+license = { text = "Proprietary" }
+authors = [{ name = "Shohan Khan", email = "helloiamshohan@gmail.com" }]
+dependencies = [
+    "PySide6-Essentials==6.11.2",
+    "shiboken6==6.11.2",
+    "SQLAlchemy==2.1.1",
+    "alembic==1.20.0",
+    "argon2-cffi==25.1.0",
+    "argon2-cffi-bindings==26.1.0",
+    "Pillow==12.3.0",
+    "openpyxl==3.1.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==9.1.1",
+    "pytest-qt==4.5.0",
+    "pytest-cov==7.1.0",
+    "ruff==0.16.9",
+    "mypy==2.3.1",
+    "vulture==2.16",
+    "pypdfium2==5.13.0",
+    "fonttools==4.66.1",
+]
+
+[project.scripts]
+dentiva = "dentiva.main:main"
+
+[project.gui-scripts]
+DentivaPro = "dentiva.main:main"
+
+[tool.setuptools.dynamic]
+version = { attr = "dentiva.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+dentiva = ["py.typed"]
+
+# --------------------------------------------------------------------- ruff --
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["build", "dist", "src/dentiva/data/migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "C4", "SIM", "RUF", "PTH", "N"]
+ignore = [
+    "RUF001",  # Bangla/Latin mixed text may contain ambiguous characters by design
+    "RUF002",
+    "RUF003",
+    "N803",    # Qt APIs use camelCase argument names
+    "N806",
+    "N802",    # Qt overrides (rowCount, headerData, paintEvent) keep Qt's names
+    "N815",    # Qt Signal attributes are mixedCase by Qt convention
+    "N818",    # domain exceptions are named after the condition (PermissionDenied)
+    "SIM117",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Stylesheet content: CSS selectors are kept on one line on purpose, splitting
+# them makes the ruleset unreadable and hides selector typos.
+"src/dentiva/ui/theme/qss.py" = ["E501"]
+"tests/*" = ["E501", "PTH"]
+"tools/*" = ["PTH"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+# --------------------------------------------------------------------- mypy --
+[tool.mypy]
+python_version = "3.11"
+warn_unused_configs = true
+warn_redundant_casts = true
+warn_return_any = false
+warn_unreachable = false
+ignore_missing_imports = true
+follow_imports = "silent"
+exclude = ["build/", "dist/", "src/dentiva/data/migrations/versions/"]
+
+[[tool.mypy.overrides]]
+module = ["dentiva.ui.*"]
+disable_error_code = ["attr-defined", "arg-type", "call-arg", "index", "misc", "return-value"]
+
+# -------------------------------------------------------------------- pytest --
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --strict-config"
+qt_api = "pyside6"
+markers = [
+    "unit: fast unit tests (no database, no GUI required)",
+    "integration: tests that use a real SQLite database / migrations",
+    "ui: tests that construct Qt widgets (headless/offscreen)",
+    "security: permission, authentication and audit enforcement tests",
+    "print: document rendering, pagination, PDF and print-path tests",
+    "backup: backup, restore and recovery tests",
+    "stress: large-data and endurance tests (excluded from the default run)",
+    "slow: long running tests (excluded from the default run)",
+]
+filterwarnings = [
+    "ignore::DeprecationWarning:shiboken6.*",
+    "ignore::DeprecationWarning:PySide6.*",
+]
+
+[tool.coverage.run]
+source = ["src/dentiva"]
+branch = true
+omit = ["*/data/migrations/*", "*/_buildinfo.py"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@abstractmethod",
+]

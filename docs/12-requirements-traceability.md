@@ -9,24 +9,30 @@ not at least **V**.
 Columns: **Impl** = implementation target (module/service/entity) ·
 **Screen** = UI location · **Test** = test target (file or procedure).
 
+**Last updated: end of Phase 2** (repository, engineering foundation, design
+system). Rows that Phase 2 delivered are marked **I** (implemented) or **V**
+(verified by a passing test); **IP** marks a requirement delivered in part
+(the remainder belongs to a later phase, named in the row). Everything else is
+still **P**.
+
 ---
 
 ## GEN — General
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| GEN-001 | Product name Dentiva Pro | `core/paths`, `ui/shell`, installer, docs | all | `tests/ui/test_shell.py` | P |
-| GEN-002 | English UI | all UI strings | all | manual + screenshot review | P |
-| GEN-003 | Unicode/Bangla user content | `core/textutil`, DB TEXT, bundled fonts | all | `tests/unit/test_unicode.py` | P |
-| GEN-004 | BDT / ৳ currency | `core/money`, `settings` | all | `tests/unit/test_money.py` | P |
-| GEN-005 | Offline, no cloud/SaaS/paid SDK | architecture; no net imports | — | `tests/unit/test_no_network_imports.py` | P |
-| GEN-006 | No data leaves the machine | no network calls | — | grep + `test_no_network_imports.py` | P |
-| GEN-007 | Dependency audit | `docs/15`, `THIRD_PARTY_NOTICES.md` | About | CI `licence` job | P |
+| GEN-001 | Product name Dentiva Pro | `src/dentiva/ui/shell/main_window.py`, `core/paths.py`, docs | all | `tests/ui/test_shell.py` | V |
+| GEN-002 | English UI | every user-visible string in `src/dentiva/ui/**` | all | `tests/ui/test_components.py`, `tests/ui/test_shell.py` + screenshot review | I |
+| GEN-003 | Unicode/Bangla user content | `core/textutil.py`, `assets/fonts`, `ui/theme/fonts.py` | all | `tests/unit/test_textutil.py`, `tests/unit/test_icons_bengali.py`, `tests/integration/test_database.py` | V |
+| GEN-004 | BDT / ৳ currency | `core/money.py` (integer paisa), `data/base.py::MoneyType` | all | `tests/unit/test_money.py` | V |
+| GEN-005 | Offline, no cloud/SaaS/paid SDK | no networking import anywhere in `src/` | — | `tests/unit/test_no_network_imports.py` | V |
+| GEN-006 | No data leaves the machine | `test_no_network_imports.py` + dependency audit | — | `tests/unit/test_no_network_imports.py` | V |
+| GEN-007 | Dependency audit | `docs/15`, `THIRD_PARTY_NOTICES.md`, `licenses/` | About | CI `hygiene` job + `tests/ui/test_about_view.py` | I |
 | GEN-008 | No artificial record caps | services/repositories (paging only) | all lists | `tests/stress/test_volume.py` | P |
 | GEN-009 | No fake buttons/mocks/demo data | code review + dead-code job | — | `tests/ui/test_no_dead_buttons.py` | P |
-| GEN-010 | No TODO/FIXME for unfinished work | CI grep | — | CI `todo-gate` | P |
+| GEN-010 | No TODO/FIXME for unfinished work | CI grep | — | CI `hygiene` job | V |
 | GEN-011 | No broken navigation | `ui/shell/navigation.py` | sidebar | `tests/ui/test_navigation_matrix.py` | P |
 | GEN-012 | No disabled mandatory workflow | review | — | phase gate checklist | P |
-| GEN-013 | No dead code | `vulture` + review | — | CI `deadcode` | P |
+| GEN-013 | No dead code | `vulture src tests --min-confidence 80` | — | CI `dead-code` job | V |
 | GEN-014 | v1.0.0 final production | release process | About | release gate | P |
 | GEN-015 | No "future" excuse gaps | phase DoD | — | phase gate | P |
 | GEN-016 | Win10 1809+/Win11 x64 | installer, `core/paths` | — | CI install matrix | P |
@@ -57,42 +63,42 @@ Columns: **Impl** = implementation target (module/service/entity) ·
 ## SHL — Shell
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| SHL-001 | Professional window shell | `ui/shell/MainWindow` | shell | `tests/ui/test_shell.py` | P |
-| SHL-002 | Header: brand, clinic name, date, notifications, user | `ui/shell/Header` | header | `test_shell.py` | P |
-| SHL-003 | Collapsible sidebar, both states functional | `ui/shell/Sidebar` | sidebar | `tests/ui/test_sidebar.py` | P |
-| SHL-004 | Navigation groups exactly as specified | `ui/shell/navigation.py` | sidebar | `test_navigation_matrix.py` | P |
-| SHL-005 | Audit Log, System Health, Search, Notifications, Print Center | views + header drawers | Admin/header | `test_navigation_matrix.py` | P |
-| SHL-006 | Sidebar state persistence | `settings` | sidebar | `test_sidebar.py` | P |
-| SHL-007/008 | Every item real; none decorative | navigation registry | — | `test_navigation_matrix.py` | P |
-| SHL-009 | Screen title + contextual actions | `ui/shell` | all | layout audit | P |
+| SHL-001 | Professional window shell | `src/dentiva/ui/shell/main_window.py` | shell | `tests/ui/test_shell.py` | V |
+| SHL-002 | Header: brand, clinic name, date *(notifications & user menu: Phase 4)* | `src/dentiva/ui/shell/header.py` | header | `tests/ui/test_shell.py` | IP |
+| SHL-003 | Collapsible sidebar, both states functional | `src/dentiva/ui/shell/sidebar.py` | sidebar | `tests/ui/test_shell.py` | V |
+| SHL-004 | Navigation groups exactly as specified | `src/dentiva/ui/shell/navigation.py` | sidebar | `tests/ui/test_shell.py` | V |
+| SHL-005 | Audit Log, System Health, Search, Notifications, Print Center | registry entries exist; screens land with their phases (3/4/13/14) | Admin/header | `tests/ui/test_shell.py` | IP |
+| SHL-006 | Sidebar state persistence | `src/dentiva/ui/settings.py` (`<data>/ui.ini`) | sidebar | `tests/ui/test_shell.py` | V |
+| SHL-007/008 | Every item real; none decorative | registry + `ui/views/pending.py` build-state indicator | — | `tests/ui/test_shell.py::test_no_module_stays_pending_past_its_phase` | IP |
+| SHL-009 | Screen title + contextual actions | header/screen chrome (Phase 4) | all | layout audit | P |
 
 ## UIX — Premium UI/UX
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| UIX-001 | Premium clinical design language | `theme/tokens.py`, `theme/qss.py` | all | screenshot review | P |
-| UIX-002 | Not generic; integrated controls | `ui/components/*` | all | review + layout audit | P |
-| UIX-003 | Full design system + all states | `ui/components/*` | all | `tests/ui/test_component_states.py` | P |
-| UIX-004 | Alignment, no overflow, centred icons | tokens + layout rules | all | `tests/ui/layout_audit.py` | P |
-| UIX-005 | No clipping/overlap/broken scrolling | layouts + audits | all | `layout_audit.py` | P |
+| UIX-001 | Premium clinical design language | `src/dentiva/ui/theme/tokens.py`, `theme/qss.py` | all | `tests/unit/test_theme.py` + screenshot review | I |
+| UIX-002 | Not generic; integrated controls | `src/dentiva/ui/components/*` | all | `tests/ui/test_components.py` + layout audit | I |
+| UIX-003 | Full design system + all states | `src/dentiva/ui/components/*` | all | `tests/ui/test_components.py` | V |
+| UIX-004 | Alignment, no overflow, centred icons | tokens + `ui/diagnostics.py` audit | all | `tests/ui/test_layout_audit.py` | V |
+| UIX-005 | No clipping/overlap/broken scrolling | `ui/diagnostics.py` | all | `tests/ui/test_layout_audit.py` | V |
 | UIX-006 | No visually-present-but-inactive controls | component contract | all | `test_no_dead_buttons.py` | P |
 | UIX-007 | Subtle purposeful animation | `ui/theme/animations.py` | shell/dialogs | manual + timer tests | P |
-| UIX-008 | Loading/empty/error/success/disabled/no-permission/validation | `ui/components` | all | `test_component_states.py` | P |
-| UIX-009 | Single token source, generated QSS | `theme/tokens.py` | — | `tests/unit/test_qss_tokens.py` | P |
+| UIX-008 | Loading/empty/error/success/disabled/no-permission/validation | `ui/components/states.py`, `feedback.py` | all | `tests/ui/test_components.py` | V |
+| UIX-009 | Single token source, generated QSS | `src/dentiva/ui/theme/tokens.py` → `theme/qss.py` | — | `tests/unit/test_theme.py` | V |
 
 ## RSP — Responsive & High-DPI
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| RSP-001 | 1366×768 … 3840×2160 | breakpoints | all | `layout_audit.py` | P |
-| RSP-002 | 100/125/150/175/200 % scaling | DPI policy, SVG | all | `layout_audit.py` (DPR matrix) | P |
-| RSP-003 | Usable at 1366×768 | dense layouts | all | `layout_audit.py` | P |
-| RSP-004 | Layout rules, not scroll-everywhere | layout policy | all | audit: no top-level h-scroll | P |
-| RSP-005 | Deliberate responsive grid (6 cards → 3+3) | `ResponsiveGrid` | Dashboard etc. | `tests/ui/test_responsive_grid.py` | P |
-| RSP-006 | Every screen reviewed at many sizes | harness + screenshots | all | `layout_audit.py` | P |
+| RSP-001 | 1366×768 … 3840×2160 | `ui/diagnostics.py` | all | `tests/ui/test_layout_audit.py` | V |
+| RSP-002 | 100/125/150/175/200 % scaling | `theme/__init__.py::configure_high_dpi`, SVG icons | all | `tests/ui/test_layout_audit.py` (1.0–2.0 sweep) + Windows CI | V |
+| RSP-003 | Usable at 1366×768 | min-size audit (1024×640 floor) | all | `tests/ui/test_layout_audit.py` | V |
+| RSP-004 | Layout rules, not scroll-everywhere | audit rule `horizontal-scroll` | all | `tests/ui/test_layout_audit.py` | V |
+| RSP-005 | Deliberate responsive grid (6 cards → 3+3) | `src/dentiva/ui/components/layout.py::ResponsiveGrid` | Dashboard etc. | `tests/ui/test_responsive_grid.py` | V |
+| RSP-006 | Every screen reviewed at many sizes | `--audit-layout` (16 screens × 5 resolutions) | all | `tests/ui/test_layout_audit.py`, `tests/ui/test_cli.py` | V |
 
 ## ICO — Icon & branding
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| ICO-001/002 | Premium concept, transparent, optical centring | `assets/icons/dentiva.png` (master) | all | manual review | P |
+| ICO-001/002 | Premium concept, transparent, optical centring | `assets/icons/dentiva.png` (master, pending) | all | manual review | P |
 | ICO-003 | No background rectangle/stretch | master + verification script | — | `tools/build/verify_icon.py` | P |
 | ICO-004 | True multi-resolution .ico | `tools/build/make_ico.py` (Pillow) | — | `tests/unit/test_icon_asset.py` | P |
 | ICO-005 | Icon in exe, installer, shortcuts, taskbar, title bar | Inno Setup + `AppUserModelID` | — | CI install assertions | P |
@@ -311,10 +317,10 @@ Columns: **Impl** = implementation target (module/service/entity) ·
 | BNG-001…003 | Unicode everywhere, bundled fonts, realistic tests | fonts + tests | all | `tests/print/test_unicode_pdf.py`, `tests/unit/test_unicode.py` | P |
 | PPV-001…004 | Preview parity, paper info, no clipping | `PrintPreviewDialog` | preview | `tests/ui/test_print_preview.py` | P |
 | KBD-001…003 | Shortcut set, no conflicts, help | `ui/shortcuts.py` | all | `tests/ui/test_shortcuts.py` | P |
-| ERR-001…004 | Central handling, no raw traces, logging, no crashes | `core/errors.py`, excepthook | error dialog | `tests/ui/test_error_handling.py` | P |
-| LOG-001…003 | Rotating structured logs, no secrets, diagnostics export | `core/logging_setup.py` | System Health | `tests/unit/test_logging_redaction.py` | P |
+| ERR-001…003 | Central error hierarchy, excepthook, `ErrorDialog`, redacted logging | `core/errors.py`, `app.py`, `components/dialogs.py` | error dialog | `tests/unit/test_errors.py`, `tests/ui/test_components.py` | V |
+| LOG-001…003 | Rotating structured logs, no secrets, diagnostics export | `core/logging_setup.py`, `diagnostics.py` | System Health | `tests/unit/test_logging.py`, `tests/ui/test_cli.py` | V |
 | PER-001…003 | Paging/indexing/off-thread work | repos, workers | all | `tests/stress/*` | P |
-| STE-001 | All states on every screen | components | all | `test_component_states.py` | P |
+| STE-001 | All states on every screen | `components/states.py` (`StateStack`) | all | `tests/ui/test_components.py` | V |
 
 ## IMP / RET / SEC / LIC / GIT / PR / REL / INS / CMT / STR / E2E / UAA / NBI / FFH / BKV / DCP / DRA / ABT / DCM / PHP / TRC / QBR / RBC
 | REQ | Requirement | Impl | Screen | Test | Status |
@@ -322,23 +328,24 @@ Columns: **Impl** = implementation target (module/service/entity) ·
 | IMP-001…003 | CSV/XLSX import-export with validation & permissions | `import_export_service` | lists/Settings | `tests/unit/test_import_export.py` | P |
 | RET-001/002 | Archive vs soft vs hard delete vs reset | services + guards | danger zone | `tests/integration/test_deletion_semantics.py` | P |
 | SEC-001…006 | Secrets, logging, path safety, uploads, parameterised SQL, service-level checks | `core`, `security`, services | — | `tests/security/*` | P |
-| LIC-001…003 | Dependency enumeration + notices + compatibility | `docs/15`, notices file | About | CI `licence` job | P |
-| GIT-001…006 | Branch/PR discipline, Actions gates, reproducible build, release/fallback | `.github/workflows` | — | CI | P |
+| LIC-001…003 | Dependency enumeration + notices + compatibility | `docs/15`, `THIRD_PARTY_NOTICES.md`, `licenses/` | About | CI `hygiene` job, `tests/ui/test_about_view.py` | I |
+| GIT-001…004 | Branch/PR discipline + Actions gates (lint, type, tests Linux/Windows, dead code, hygiene) | `.github/workflows/ci.yml` | — | CI | V |
 | PR-001 | Agent never merges | process | — | phase gate | P |
 | REL-001/002 | No premature build; all gates | process | — | release checklist | P |
 | INS-001…008 | Installer behaviour, data preservation, reinstall | Inno Setup | — | CI install/uninstall/reinstall | P |
 | CMT-001 | Clean-machine checklist | `--selftest` + CI | — | Windows CI | P |
 | STR-001/002 | Stress scenarios | fixtures | — | `tests/stress/*` | P |
 | E2E-001 | Full clinic workflow | everything | all | `tests/e2e/test_full_workflow.py` | P |
-| UAA-001/002 | Screen-by-screen audits | harness + manual | all | `layout_audit.py` + review | P |
-| NBI-001/002 | Every interactive element works | component tests | all | `tests/ui/test_interaction_matrix.py` | P |
-| FFH-001 | File/folder error handling | `core/fileutil` | — | `tests/unit/test_file_operations.py` | P |
+| UAA-001/002 | Screen-by-screen audits | `ui/diagnostics.py`, `--audit-layout` | all | `tests/ui/test_layout_audit.py` + human screenshot review | IP |
+| NBI-001/002 | Every interactive element works | component behaviour tests | all | `tests/ui/test_components.py` | IP |
+| FFH-001 | File/folder error handling | `core/fileutil.py` (atomic write/copy, space check) | — | `tests/unit/test_fileutil.py` | V |
 | BKV-001…003 | Backup verification & test restore | `backup/verify.py` | Backup & Restore | `tests/backup/test_verify.py` | P |
 | DCP-001 | Corruption protection | transactions, safe writes | — | `tests/integration/test_crash_safety.py` | P |
 | DRA-001/002 | Real numbers, independent verification | `dashboard_service` | Dashboard | `test_dashboard_accuracy.py` | P |
-| ABT-001…004 | About: Dentiva Pro, Shohan Khan, email, notices | `ui/views/about.py` | About | `tests/ui/test_about_view.py` | P |
+| ABT-001…004 | About: Dentiva Pro, Shohan Khan, email, notices | `src/dentiva/ui/views/about.py` | About | `tests/ui/test_about_view.py` | V |
 | DCM-001/002 | Documentation matches implementation | `docs/*` | — | phase gate | P |
 | PHP-001…003 | Phase protocol | process | — | phase reports | P |
-| TRC-001/002 | Traceability matrix maintained & audited | this file | — | `tools/trace_report.py` | P |
+| TRC-001 | Traceability matrix maintained every phase | this file | — | phase gate review | V |
+| TRC-002 | Matrix cross-checked against the test suite | `tools/trace_report.py` (Phase 3) | — | CI | P |
 | QBR-001/002 | Quality bar | everything | — | release gates | P |
 | RBC-001 | Release-blocking conditions | release checklist | — | release gate | P |

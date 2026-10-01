@@ -48,16 +48,34 @@ print-path tests), PowerShell for installer assertions, and Inno Setup via
 
 ## 5. Common commands
 ```bash
-pytest -q                      # default suite (excludes stress/slow)
-pytest -m stress               # stress suite (nightly/release)
+pytest -q                        # default suite (excludes stress/slow)
+pytest -m stress                 # stress suite (nightly/release)
 pytest --cov=dentiva --cov-report=term-missing
 ruff check . && ruff format --check .
-mypy dentiva
-python -m dentiva --version
-python -m dentiva --selftest   # headless end-to-end diagnostics (works on any OS)
-python tools/build/make_ico.py # regenerate the multi-resolution icon
-python tools/trace_report.py   # traceability vs tests; fails on untested requirements
+mypy src/dentiva
+vulture src tests --min-confidence 80
+python -m dentiva.main --version
+python -m dentiva.main --build-info
+python -m dentiva.main --selftest       # headless end-to-end diagnostics (any OS)
+python -m dentiva.main --audit-layout   # every screen × 5 resolutions
+python -m dentiva.main --audit-layout --scale 2.0   # …at 200 % scaling
+python -m dentiva.main --diagnostics support.json   # redacted support bundle
+python tools/build/make_ico.py   # regenerate the multi-resolution icon
+python tools/trace_report.py     # traceability vs tests; fails on untested requirements
 ```
+
+## 5.1 Running the UI tests
+
+Widget tests run headless/offscreen (`QT_QPA_PLATFORM=offscreen`, set
+automatically by `tests/conftest.py`). Two fixtures make the suite hermetic:
+
+- `data_dir` (autouse) points `DENTIVA_DATA_DIR` at a per-test temporary
+  directory, so logs, settings and databases never touch the developer's real
+  data directory;
+- `isolated_settings` (autouse) redirects `QSettings` to a throw-away INI file.
+
+UI state (window geometry, last screen, sidebar collapse) is stored in
+`<data>/ui.ini`, never in the Windows registry — see `src/dentiva/ui/settings.py`.
 
 ## 6. Directory hygiene
 - Generated artifacts (`build/`, `dist/`, `.pytest_cache/`, `__pycache__/`,
