@@ -16,6 +16,7 @@ from sqlalchemy import Engine, create_engine
 
 from dentiva.data.base import Base
 from dentiva.data.engine import database_url
+from dentiva.data.models import *  # noqa: F403 - registers every table on Base.metadata
 
 config = context.config
 

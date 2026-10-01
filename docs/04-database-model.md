@@ -311,3 +311,11 @@ where feasible, and records its REQ link in the message. `alembic upgrade head`
 runs inside the startup transaction; failure rolls back and shows a recovery
 dialog that offers "restore from the last backup" (the pre-upgrade backup is taken
 automatically when an upgrade is pending).
+
+Implementation: `dentiva/data/engine.py` — `upgrade()` (with the pre-upgrade
+safety backup and automatic recovery described above) and `downgrade()`, a
+maintenance-only entry point for support engineers rolling back to an older
+build. `tests/integration/test_schema_integrity.py::test_the_migration_is_reversible`
+proves the round trip for revision `0001`: upgrade → downgrade to `base` (no
+tables, no audit triggers, revision stamp cleared) → upgrade again produces a
+schema identical to the first one and passes `PRAGMA integrity_check`.

@@ -13,7 +13,7 @@ from decimal import Decimal
 from typing import Any, ClassVar
 
 from sqlalchemy import Integer, MetaData, String, TypeDecorator
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, declared_attr, mapped_column
 
 from dentiva.core.money import Money
 
@@ -93,3 +93,18 @@ class SoftDeleteColumns:
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at_utc is not None
+
+
+class VersionedColumns:
+    """Optimistic locking: a stale save raises :class:`ConflictError`.
+
+    SQLAlchemy is configured with ``version_id_col`` on the mappers that need it,
+    so a concurrent edit of the same row fails instead of silently overwriting.
+    """
+
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    @declared_attr.directive
+    def __mapper_args__(cls) -> dict[str, object]:  # noqa: N805 - SQLAlchemy hook
+        """Teach the mapper to bump ``version`` on every UPDATE."""
+        return {"version_id_col": cls.version}

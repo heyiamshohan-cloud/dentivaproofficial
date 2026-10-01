@@ -9,11 +9,19 @@ not at least **V**.
 Columns: **Impl** = implementation target (module/service/entity) ·
 **Screen** = UI location · **Test** = test target (file or procedure).
 
-**Last updated: end of Phase 2** (repository, engineering foundation, design
-system). Rows that Phase 2 delivered are marked **I** (implemented) or **V**
-(verified by a passing test); **IP** marks a requirement delivered in part
-(the remainder belongs to a later phase, named in the row). Everything else is
-still **P**.
+**Last updated: end of Phase 3** (database, domain model, security, RBAC).
+
+Phase 3 moved the data/security requirements to **V**: the schema is compared
+against the ORM metadata by `tests/integration/test_schema_integrity.py`, the
+permission matrix and financial isolation are enforced in the service layer,
+and the audit log is append-only with a hash chain. **IP** marks a requirement
+delivered in part — the remaining part is named in the row and belongs to a
+later phase (the shell in Phase 4, the screens in Phase 5, money workflows in
+Phase 10). Everything else is still **P**.
+
+`python tools/trace_report.py` cross-checks this file against
+`docs/01-requirements-baseline.md` and the test suite; `--release` fails while
+any mandatory requirement is below **V** (REQ-TRC-002).
 
 ---
 
@@ -43,7 +51,7 @@ still **P**.
 |---|---|---|---|---|---|
 | BIZ-001 | Connected patient lifecycle | FKs across all aggregates | profile/timeline | `tests/integration/test_lifecycle.py` | P |
 | BIZ-002 | Correct patient/visit/dentist/invoice/payment linkage | service layer invariants | — | `test_lifecycle.py` | P |
-| BIZ-003 | Multi-dentist + actor identity | `dentist`, `*_by_user_id`, `*_dentist_id` | Clinical | `tests/unit/test_actor_identity.py` | P |
+| BIZ-003 | Multi-dentist + actor identity | `dentist`, `*_by_user_id`, `*_dentist_id`; audit resolves the acting user | Clinical | `tests/security/test_audit_append_only.py` (actor columns), `test_permission_matrix.py` | IP |
 | BIZ-004 | Unlimited patients & history | paging everywhere | lists/timeline | `tests/stress/test_volume.py` | P |
 
 ## FRS — First-run setup
@@ -53,7 +61,7 @@ still **P**.
 | FRS-002 | Clinic identity + logo | `business`, `asset` | wizard step 1 / Settings | `tests/unit/test_clinic_service.py` | P |
 | FRS-003 | One or many dentists with professional details | `dentist`, `dentist_designation`, `dentist_qualification` | wizard step 2 | `tests/unit/test_dentist_service.py` | P |
 | FRS-004 | Multiple designations & qualifications | normalised tables | wizard/Settings | `test_dentist_service.py` | P |
-| FRS-005 | Initial admin account, Argon2id | `user`, `security/password` | wizard step 3 | `tests/unit/test_password.py` | P |
+| FRS-005 | Initial admin account, Argon2id | `user`, `security/password`, `bootstrap_service` | wizard step 3 | `tests/unit/test_password.py`, `tests/security/test_auth_flow.py` | IP |
 | FRS-006 | Currency/print/backup/security defaults | `settings`, `printer_profile` | wizard step 4 | `tests/unit/test_settings_service.py` | P |
 | FRS-007 | Transactional + recoverable setup | single transaction, rollback | wizard | `tests/integration/test_setup_rollback.py` | P |
 | FRS-008 | Production blocked until setup complete | boot gate in `app.py` | — | `tests/integration/test_setup_gate.py` | P |
@@ -264,30 +272,30 @@ still **P**.
 |---|---|---|---|---|---|
 | STF-001 | Staff fields | `staff` | Staff & Users | `tests/unit/test_staff_service.py` | P |
 | STF-002 | Staff vs user separation | `user.staff_id` nullable | Staff & Users | `test_staff_service.py` | P |
-| USR-001 | Admin creates users, assigns roles | `user_service`, `role_service` | Staff & Users | `tests/unit/test_user_service.py` | P |
+| USR-001 | Admin creates users, assigns roles | `user_service`, `role_service` | Staff & Users (Phase 5) | `tests/security/test_auth_flow.py` (create/reset), `test_permission_matrix.py` (roles) | IP |
 | USR-002 | Deactivation preserves history | `user.is_active` | Staff & Users | `test_user_service.py` | P |
 | USR-003 | Password reset/force change | `user_service` + audit | Staff & Users | `test_user_service.py` | P |
 
 ## RBAC / AUTH
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| RBAC-001 | Granular, data-driven roles | `role`, `role_permission` | Staff & Users | `tests/unit/test_rbac.py` | P |
-| RBAC-002 | 40+ permission catalogue | `domain/permissions.py` | role editor | `tests/unit/test_permission_catalogue.py` | P |
-| RBAC-003 | Enforcement at service layer | `@require` | — | `test_permission_matrix.py` | P |
-| RBAC-004 | No bypass via screen/export/search | services only path | — | `test_financial_isolation.py` | P |
-| RBAC-005 | Every service declares permission | decorator coverage test | — | `tests/security/test_decorator_coverage.py` | P |
-| AUTH-001 | Argon2id, unique salts | `security/password.py` | Login | `tests/unit/test_password.py` | P |
-| AUTH-002 | Correct login/logout, protected session | `security/session.py` | Login/header | `tests/unit/test_session.py` | P |
-| AUTH-003 | Auto-lock 5/10/15/30 min | `LockOverlay` + activity monitor | shell | `tests/ui/test_auto_lock.py` | P |
+| RBAC-001 | Granular, data-driven roles | `role`, `role_permission`, `data/seed/roles.py` | Staff & Users (Phase 5) | `tests/security/test_permission_matrix.py` | V |
+| RBAC-002 | 40+ permission catalogue (72 codes) | `domain/permissions.py` | role editor (Phase 5) | `tests/security/test_permission_matrix.py` | V |
+| RBAC-003 | Enforcement at service layer | `@require` in `services/rbac.py` | — | `tests/security/test_permission_matrix.py` | V |
+| RBAC-004 | No bypass via screen/export/search | services only path; search filtered by permission | — | `tests/security/test_financial_isolation.py` | V |
+| RBAC-005 | Every service declares permission | decorator coverage test | — | `tests/security/test_permission_matrix.py` | V |
+| AUTH-001 | Argon2id, unique salts | `security/password.py` | Login (Phase 4) | `tests/unit/test_password.py` | V |
+| AUTH-002 | Correct login/logout, protected session | `security/session.py`, `auth_service` | Login/header (Phase 4) | `tests/unit/test_session.py`, `tests/security/test_auth_flow.py` | V |
+| AUTH-003 | Auto-lock 5/10/15/30 min | `security/session.py` countdown + `LockOverlay` (Phase 4) | shell | `tests/unit/test_session.py` (countdown), `tests/ui/test_auto_lock.py` (Phase 4) | IP |
 | AUTH-004 | Auto-lock preserves work | draft autosave/restore | editors | `tests/ui/test_draft_persistence.py` | P |
-| AUTH-005 | Unlock requires authentication | lock overlay | shell | `test_auto_lock.py` | P |
-| AUTH-006 | Re-auth for sensitive ops | `ReAuthDialog` | danger flows | `tests/security/test_reauth.py` | P |
-| AUTH-007 | Lockout + password policy | `security/password.py`, settings | Settings | `test_password.py` | P |
+| AUTH-005 | Unlock requires authentication | `auth_service.unlock()` + lock overlay (Phase 4) | shell | `tests/security/test_auth_flow.py` | IP |
+| AUTH-006 | Re-auth for sensitive ops | `sensitive=True` on `@require` (enforced) + `ReAuthDialog` (Phase 4) | danger flows | `tests/security/test_auth_flow.py`, `test_permission_matrix.py` | IP |
+| AUTH-007 | Lockout + password policy | `security/password.py`, `auth_service` throttling | Settings (Phase 5) | `tests/unit/test_password.py`, `tests/security/test_auth_flow.py` | V |
 
 ## ACT / BKP / SET / DST
 | REQ | Requirement | Impl | Screen | Test | Status |
 |---|---|---|---|---|---|
-| ACT-001…005 | Offline activation, derived, honest docs | `security/activation.py`, docs | Activation dialog | `tests/unit/test_activation.py` + grep test for literal code | P |
+| ACT-001…005 | Offline activation, derived, honest docs | `security/activation.py`, split verifier | Activation dialog (Phase 5) | `tests/unit/test_activation.py` (incl. plaintext-code grep) | V |
 | BKP-001…009 | Manual/auto backup, atomic, verified, restore semantics, pre-restore backup | `backup/*` | Backup & Restore | `tests/backup/*` | P |
 | SET-001/002 | Central settings incl. danger zone | `settings_service`, `SettingsView` | Settings | `tests/ui/test_settings_view.py` | P |
 | DST-001…003 | Safeguards: warnings, typed confirmation, re-auth, safety backup | `ui/dialogs/confirm_danger.py` | danger dialogs | `tests/ui/test_destructive_guards.py` | P |
@@ -306,9 +314,9 @@ still **P**.
 |---|---|---|---|---|---|
 | ATT-001…005 | Attachments: types, metadata, preview, validation, permissions | `attachment_service` | Attachments tab | `tests/unit/test_attachments.py` | P |
 | REF-001/002 | Referral records + history | `referral` | Referrals/timeline | `tests/unit/test_referral_service.py` | P |
-| AUD-001…003 | Audit coverage, fields, append-only | `audit_service` + triggers | Audit Log, System Health | `tests/integration/test_audit_append_only.py` | P |
-| DB-001…006 | Entity coverage, FKs, deletion rules, migrations, integrity checks | `data/models`, Alembic | System Health | `tests/integration/test_schema_integrity.py` | P |
-| MON-001…004 | Single source totals, decimal math, transactions | `domain/invoice_math`, UoW | — | `test_financial_consistency.py` | P |
+| AUD-001…003 | Audit coverage, fields, append-only | `audit_service` + SQL triggers + hash chain | Audit Log, System Health | `tests/security/test_audit_append_only.py` | V |
+| DB-001…006 | Entity coverage, FKs, deletion rules, migrations, integrity checks | `data/models`, Alembic, `data/engine.py` | System Health | `tests/integration/test_schema_integrity.py` | V |
+| MON-001…004 | Single source totals, decimal math, transactions | `domain/invoice_math`, `session_scope` UoW | — | `tests/unit/test_invoice_math.py` (math), `tests/unit/test_money.py` | IP |
 | MED-001…004 | Clinical history preservation, chart history, actor identity, audited edits | services + insert-only rules | profile/chart | `tests/integration/test_clinical_history.py` | P |
 
 ## BNG / PPV / KBD / ERR / LOG / PER / STE
@@ -318,8 +326,9 @@ still **P**.
 | PPV-001…004 | Preview parity, paper info, no clipping | `PrintPreviewDialog` | preview | `tests/ui/test_print_preview.py` | P |
 | KBD-001…003 | Shortcut set, no conflicts, help | `ui/shortcuts.py` | all | `tests/ui/test_shortcuts.py` | P |
 | ERR-001…003 | Central error hierarchy, excepthook, `ErrorDialog`, redacted logging | `core/errors.py`, `app.py`, `components/dialogs.py` | error dialog | `tests/unit/test_errors.py`, `tests/ui/test_components.py` | V |
+| ERR-004 | No crash from ordinary invalid input | validation in every service + `core/errors.py` | all | `tests/unit/test_errors.py`, per-service validation tests | IP |
 | LOG-001…003 | Rotating structured logs, no secrets, diagnostics export | `core/logging_setup.py`, `diagnostics.py` | System Health | `tests/unit/test_logging.py`, `tests/ui/test_cli.py` | V |
-| PER-001…003 | Paging/indexing/off-thread work | repos, workers | all | `tests/stress/*` | P |
+| PER-001…003 | Paging/indexing/off-thread work | `domain/paging.py`, repos, workers (Phase 4) | all | `tests/unit/test_paging.py`, `tests/stress/*` | IP |
 | STE-001 | All states on every screen | `components/states.py` (`StateStack`) | all | `tests/ui/test_components.py` | V |
 
 ## IMP / RET / SEC / LIC / GIT / PR / REL / INS / CMT / STR / E2E / UAA / NBI / FFH / BKV / DCP / DRA / ABT / DCM / PHP / TRC / QBR / RBC
@@ -327,9 +336,11 @@ still **P**.
 |---|---|---|---|---|---|
 | IMP-001…003 | CSV/XLSX import-export with validation & permissions | `import_export_service` | lists/Settings | `tests/unit/test_import_export.py` | P |
 | RET-001/002 | Archive vs soft vs hard delete vs reset | services + guards | danger zone | `tests/integration/test_deletion_semantics.py` | P |
-| SEC-001…006 | Secrets, logging, path safety, uploads, parameterised SQL, service-level checks | `core`, `security`, services | — | `tests/security/*` | P |
+| SEC-001…006 | Secrets, logging, path safety, uploads, parameterised SQL, service-level checks | `core`, `security`, services | — | `tests/security/test_secrets.py`, `tests/unit/test_logging.py`, `tests/unit/test_paths.py` | IP |
 | LIC-001…003 | Dependency enumeration + notices + compatibility | `docs/15`, `THIRD_PARTY_NOTICES.md`, `licenses/` | About | CI `hygiene` job, `tests/ui/test_about_view.py` | I |
 | GIT-001…004 | Branch/PR discipline + Actions gates (lint, type, tests Linux/Windows, dead code, hygiene) | `.github/workflows/ci.yml` | — | CI | V |
+| GIT-005 | Final `.exe` published via GitHub Release, `dist/` fallback | release workflow, `docs/11` §7 | — | Phase 17/18 release gate | P |
+| GIT-006 | CI rejects TODO/FIXME for unfinished work and dead-code findings | `.github/workflows/ci.yml` (`hygiene`, `dead-code`) | — | CI | V |
 | PR-001 | Agent never merges | process | — | phase gate | P |
 | REL-001/002 | No premature build; all gates | process | — | release checklist | P |
 | INS-001…008 | Installer behaviour, data preservation, reinstall | Inno Setup | — | CI install/uninstall/reinstall | P |
@@ -346,6 +357,6 @@ still **P**.
 | DCM-001/002 | Documentation matches implementation | `docs/*` | — | phase gate | P |
 | PHP-001…003 | Phase protocol | process | — | phase reports | P |
 | TRC-001 | Traceability matrix maintained every phase | this file | — | phase gate review | V |
-| TRC-002 | Matrix cross-checked against the test suite | `tools/trace_report.py` (Phase 3) | — | CI | P |
+| TRC-002 | Matrix cross-checked against the test suite | `tools/trace_report.py` | — | `tests/unit/test_trace_report.py`, CI | V |
 | QBR-001/002 | Quality bar | everything | — | release gates | P |
 | RBC-001 | Release-blocking conditions | release checklist | — | release gate | P |

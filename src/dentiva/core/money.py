@@ -151,6 +151,11 @@ class Money:
         return _taka_in_words(int(abs(self.paisa) // PAISA_PER_TAKA))
 
 
+#: The shared zero: ``Money`` is immutable, so one instance can safely be used
+#: as a default value (ruff B008/RUF009 forbid building one per call).
+ZERO = Money(0)
+
+
 def _as_paisa(value: Any) -> int:
     if isinstance(value, Money):
         return value.paisa

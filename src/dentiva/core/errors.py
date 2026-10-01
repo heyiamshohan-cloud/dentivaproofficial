@@ -68,6 +68,30 @@ class ConflictError(DentivaError):
     retryable = True
 
 
+class ConfirmationRequired(ValidationError):
+    """A destructive action needs the user to type an exact confirmation phrase.
+
+    Raised by the service layer, never by the UI: the business rule that an
+    irreversible action must be confirmed stays enforceable from tests and from
+    any future non-Qt caller.
+    """
+
+    title = "Type the confirmation"
+    retryable = True
+
+    def __init__(
+        self,
+        message: str = "",
+        *,
+        action: str = "",
+        phrase: str = "",
+        **context: Any,
+    ) -> None:
+        super().__init__(message or self.__doc__ or "", **context)
+        self.action = action
+        self.phrase = phrase
+
+
 class IntegrityError(DentivaError):
     """This change would break data integrity and was cancelled."""
 
@@ -115,3 +139,19 @@ class MigrationError(DentivaError):
 
     title = "Database update problem"
     retryable = False
+
+    def __init__(
+        self, message: str = "", *, detail: str = "", recovery: str = "", **context: Any
+    ) -> None:
+        super().__init__(message, detail=detail, recovery=recovery, **context)
+        #: Path of the safety backup the database was restored from (may be "").
+        self.recovery = recovery
+
+    def user_message(self) -> str:
+        base = super().user_message()
+        if self.recovery:
+            return (
+                f"{base} Your data was left untouched: the database was restored from "
+                f"{self.recovery}."
+            )
+        return base

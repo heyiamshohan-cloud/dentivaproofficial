@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -9,6 +10,7 @@ from typing import Any
 from sqlalchemy import Engine, create_engine, event, text
 from sqlalchemy.engine import Connection
 
+from dentiva.core.clock import utc_now
 from dentiva.core.errors import IntegrityError, MigrationError
 
 #: PRAGMAs applied to every connection (REQ-DB-005, ADR-0002).
@@ -45,18 +47,125 @@ def _apply_pragmas(dbapi_connection: Any, _record: Any) -> None:
         cursor.close()
 
 
-def upgrade(engine_or_url: Engine | str, *, revision: str = "head") -> None:
-    """Apply Alembic migrations up to *revision* (imports Alembic lazily)."""
+def upgrade(
+    engine_or_url: Engine | str,
+    *,
+    revision: str = "head",
+    safety_backup_dir: str | Path | None = None,
+) -> Path | None:
+    """Apply Alembic migrations up to *revision* (imports Alembic lazily).
+
+    SQLite DDL is not transactional in every failure mode, so a migration can
+    leave a half-built schema behind. Dentiva Pro therefore behaves like a
+    database product rather than a script (REQ-DB-006, docs/04 §10):
+
+    1. if a migration is pending and the database already holds data, a
+       **pre-upgrade safety backup** is taken automatically;
+    2. the upgrade runs;
+    3. on failure the partial database is replaced by that backup (or, for a
+       database that was still empty, removed so the next start rebuilds it) and
+       a :class:`MigrationError` carrying the recovery information is raised.
+
+    Returns the path of the safety backup when one was taken, else ``None``.
+    """
     from alembic import command
 
-    config = _alembic_config(engine_or_url)
+    engine = (
+        engine_or_url
+        if isinstance(engine_or_url, Engine)
+        else create_engine_for_db_url(engine_or_url)
+    )
+    db_path = _database_file(engine)
+    had_tables = _has_user_tables(engine)
+    backup_path: Path | None = None
+    if had_tables and db_path is not None and safety_backup_dir is not None:
+        timestamp = utc_now().strftime("%Y%m%d-%H%M%S")
+        backup_path = Path(safety_backup_dir) / f"pre-upgrade-{timestamp}.db"
+        backup_database(engine, backup_path)
+
+    config = _alembic_config(str(engine.url))
     try:
         command.upgrade(config, revision)
-    except Exception as exc:  # surface as a domain error, keep the cause in the log
+    except Exception as exc:
+        recovered = _recover_after_failed_upgrade(engine, db_path, backup_path, had_tables)
         raise MigrationError(
             "The clinic database could not be prepared for this version.",
             detail=f"{type(exc).__name__}: {exc}",
+            recovery=str(recovered) if recovered else "",
         ) from exc
+    return backup_path
+
+
+def downgrade(
+    engine_or_url: Engine | str,
+    *,
+    revision: str = "base",
+) -> None:
+    """Roll migrations back to *revision* (docs/04 §10: revisions are reversible).
+
+    Reversal is a maintenance operation, never part of normal start-up, so it
+    does not take the automatic safety backup that :func:`upgrade` takes: a
+    downgrade is destructive by definition and the caller (a support engineer
+    restoring an older build) must have taken a backup first.
+    """
+    from alembic import command
+
+    engine = (
+        engine_or_url
+        if isinstance(engine_or_url, Engine)
+        else create_engine_for_db_url(engine_or_url)
+    )
+    config = _alembic_config(str(engine.url))
+    try:
+        command.downgrade(config, revision)
+    except Exception as exc:
+        raise MigrationError(
+            "The clinic database could not be rolled back to the requested revision.",
+            detail=f"{type(exc).__name__}: {exc}",
+        ) from exc
+
+
+def _database_file(engine: Engine) -> Path | None:
+    """Path of the SQLite file behind *engine* (``None`` for in-memory URLs)."""
+    database = engine.url.database
+    return Path(database) if database and database != ":memory:" else None
+
+
+def _has_user_tables(engine: Engine) -> bool:
+    """True when the database already contains at least one table."""
+    with engine.connect() as connection:
+        rows = connection.execute(
+            text("SELECT count(*) FROM sqlite_master WHERE type='table'")
+        ).scalar()
+    return bool(rows)
+
+
+def _recover_after_failed_upgrade(
+    engine: Engine,
+    db_path: Path | None,
+    backup_path: Path | None,
+    had_tables: bool,
+) -> Path | None:
+    """Put the database back the way it was before a failed migration."""
+    engine.dispose()
+    if db_path is None:
+        return None
+    if backup_path is not None and backup_path.is_file():
+        # Restore the snapshot and drop the WAL/SHM files of the broken state.
+        shutil.copyfile(backup_path, db_path)
+        for suffix in ("-wal", "-shm"):
+            sidecar = db_path.with_name(db_path.name + suffix)
+            if sidecar.exists():
+                sidecar.unlink()
+        return backup_path
+    if not had_tables:
+        # The database was still empty: remove the partial schema so the next
+        # start rebuilds it from scratch instead of failing forever.
+        for suffix in ("", "-wal", "-shm"):
+            candidate = db_path.with_name(db_path.name + suffix)
+            if candidate.exists():
+                candidate.unlink()
+    return None
 
 
 def current_revision(engine_or_url: Engine | str) -> str | None:

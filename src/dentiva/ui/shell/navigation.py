@@ -17,7 +17,10 @@ from dataclasses import dataclass, field
 from PySide6.QtWidgets import QWidget
 
 #: Phase currently being executed. Advanced at every phase gate.
-CURRENT_PHASE = 2
+#: Phase 3 (database, security and the service layer) delivers no screens, so the
+#: two administration items that depend on it are scheduled for Phase 13
+#: (backup, restore, import/export, data integrity).
+CURRENT_PHASE = 3
 
 #: Navigation groups, in the order required by the specification.
 PRACTICE = "Practice"
@@ -188,7 +191,7 @@ NAV_ITEMS: tuple[NavItem, ...] = (
         label="Audit Log",
         icon="audit",
         group=ADMINISTRATION,
-        phase=3,
+        phase=13,
         description="Append-only, tamper-evident history of sensitive actions.",
         permission="audit.view",
     ),
@@ -197,7 +200,7 @@ NAV_ITEMS: tuple[NavItem, ...] = (
         label="System Health",
         icon="health",
         group=ADMINISTRATION,
-        phase=3,
+        phase=13,
         description="Database integrity, audit chain, storage and diagnostics export.",
         permission="system.health",
     ),

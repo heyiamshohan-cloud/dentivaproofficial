@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any, ClassVar
 
 import pytest
-from sqlalchemy import Integer
-from sqlalchemy.orm import Mapped, Session, mapped_column
+from sqlalchemy import Integer, MetaData
+from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column
 
 from dentiva.core.money import Money, total
-from dentiva.data.base import Base, MoneyType
+from dentiva.data.base import NAMING_CONVENTION, MoneyType
 
 
 def test_from_taka_rejects_float() -> None:
@@ -94,7 +95,14 @@ def test_amount_in_words() -> None:
     assert Money.from_taka(1250).amount_in_words().startswith("One Thousand Two Hundred and Fifty")
 
 
-class MoneyRow(Base):
+class _IsolatedBase(DeclarativeBase):
+    """A private registry, so the test table never enters the product metadata."""
+
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+    type_annotation_map: ClassVar[dict[Any, Any]] = {Money: MoneyType}
+
+
+class MoneyRow(_IsolatedBase):
     """Module level model: SQLAlchemy resolves annotations from module globals."""
 
     __tablename__ = "money_row"
@@ -106,7 +114,7 @@ def test_negative_round_trip_with_database_column() -> None:
     from sqlalchemy import create_engine
 
     engine = create_engine("sqlite://", future=True)
-    Base.metadata.create_all(engine)
+    _IsolatedBase.metadata.create_all(engine)
     with Session(engine) as session:
         session.add(MoneyRow(id=1, amount=Money.from_taka("-12.34")))
         session.commit()

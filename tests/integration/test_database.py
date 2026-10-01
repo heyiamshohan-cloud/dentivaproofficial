@@ -5,10 +5,10 @@ REQ-DB-004/005/006, ADR-0002, REQ-BKP-003.
 
 from __future__ import annotations
 
-from sqlalchemy import Integer, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Integer, MetaData, text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
-from dentiva.data.base import Base
+from dentiva.data.base import NAMING_CONVENTION
 from dentiva.data.engine import (
     assert_healthy,
     backup_database,
@@ -67,7 +67,13 @@ def test_online_backup_produces_a_readable_copy(db_engine, tmp_path) -> None:
     copy.close()
 
 
-class Note(Base):
+class _IsolatedBase(DeclarativeBase):
+    """A private registry, so the test table never enters the product metadata."""
+
+    metadata = MetaData(naming_convention=NAMING_CONVENTION)
+
+
+class Note(_IsolatedBase):
     """Module level model used by the session-scope test."""
 
     __tablename__ = "note"
@@ -78,7 +84,7 @@ def test_session_scope_commits_once_and_rolls_back_on_error(tmp_path) -> None:
     from dentiva.data.session import session_factory, session_scope
 
     engine = create_engine_for(tmp_path / "session.db")
-    Base.metadata.create_all(engine)
+    _IsolatedBase.metadata.create_all(engine)
     factory = session_factory(engine)
 
     with session_scope(factory) as session:

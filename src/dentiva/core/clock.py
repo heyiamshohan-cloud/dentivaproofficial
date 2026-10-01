@@ -7,7 +7,7 @@ time deterministically instead of sleeping or monkeypatching ``datetime``.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 
 class Clock:
@@ -71,6 +71,11 @@ def reset_clock() -> None:
     """Restore the system clock."""
     global CLOCK
     CLOCK = Clock()
+
+
+def local_today() -> date:
+    """Today's date in the local timezone (period filters, local_date columns)."""
+    return CLOCK.today_local()
 
 
 def utc_now() -> datetime:
